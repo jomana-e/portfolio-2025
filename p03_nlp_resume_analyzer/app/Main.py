@@ -1,3 +1,3 @@
-import streamlit as st 
-st.title("NLP Resume Analyzer") 
-st.write("Hello world - deployment test") 
+import streamlit as st
+st.title("NLP Resume Analyzer")
+st.write("Hello world - deployment test")
