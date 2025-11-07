@@ -36,6 +36,8 @@ portfolio-2025/
 └── README.md
 ```
 
+---
+
 ## 📸 Visual Preview
 
 [WORK IN PROGRESS]
