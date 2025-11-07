@@ -96,7 +96,7 @@ pip install dbt-snowflake
 
 ### 2️⃣ Set Up Snowflake Credentials
 
-In ~/.dbt/profiles.yml (or Windows %USERPROFILE%\.dbt\profiles.yml):
+In `~/.dbt/profiles.yml` (or Windows `%USERPROFILE%\.dbt\profiles.yml`):
 
 ```bash
 portfolio_2025:
