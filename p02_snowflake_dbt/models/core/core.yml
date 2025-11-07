@@ -1,0 +1,7 @@
+version: 2
+
+models:
+  - name: fraud_union
+    description: "Combines train and test data into a unified dataset."
+  - name: fraud_features
+    description: "Adds time-based and value-based features for ML and analysis."

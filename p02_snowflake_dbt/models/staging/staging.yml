@@ -1,0 +1,12 @@
+version: 2
+
+sources:
+  - name: raw
+    database: PORTFOLIO_DB
+    schema: RAW_DATA
+    tables:
+      - name: RAW_FRAUD_DATA
+
+models:
+  - name: stg_fraud_data
+    description: "Unified staging model combining train and test data"

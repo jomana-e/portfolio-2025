@@ -2,3 +2,42 @@ p01_predictive_dashboard/models/churn_model.joblib
 p01_predictive_dashboard/models/churn_pipeline.joblib
 p01_predictive_dashboard/models/feature_names.joblib
 p01_predictive_dashboard/0.5
+
+# dbt build artifacts
+target/
+dbt_packages/
+logs/
+dbt_modules/
+manifest.json
+run_results.json
+graph_summary.json
+graph.gpickle
+partial_parse.msgpack
+semantic_manifest.json
+
+# Compiled code
+compiled/
+
+# OS and IDE junk
+.DS_Store
+*.log
+.vscode/
+__pycache__/
+*.pyc
+
+# Environment / credentials
+.env
+*.pem
+*.key
+*.p8
+profiles.yml
+
+# Keep the built docs for portfolio display
+!docs/p02_snowflake_dbt/target/index.html
+!docs/p02_snowflake_dbt/target/catalog.json
+
+p02_snowflake_dbt/rsa_key.pub
+p02_snowflake_dbt/data/fraudTest.csv
+p02_snowflake_dbt/data/fraudTrain.csv
+.Rhistory
+p02_snowflake_dbt/package-lock.yml
