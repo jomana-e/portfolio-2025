@@ -1,2 +1,110 @@
-<h1>Jomana's Data Science Portfolio</h1>
-<p>Coming soon - 10 projects in machine learning, NLP, and AI!</p>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jomana Abdelrahman | Data Science Portfolio</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f8f9fa;
+      margin: 0;
+      padding: 0;
+      color: #333;
+    }
+
+    header {
+      background-color: #1e293b;
+      color: #fff;
+      padding: 2rem;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 2rem;
+    }
+
+    main {
+      padding: 2rem;
+      max-width: 1000px;
+      margin: auto;
+    }
+
+    .projects {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .card {
+      background-color: #fff;
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      transition: all 0.2s ease-in-out;
+    }
+
+    .card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+    }
+
+    .card h2 {
+      color: #2563eb;
+      margin-top: 0;
+    }
+
+    .card p {
+      line-height: 1.5;
+    }
+
+    .tech {
+      font-size: 0.9rem;
+      color: #555;
+      margin-top: 0.5rem;
+    }
+
+    footer {
+      text-align: center;
+      padding: 1rem;
+      background-color: #e2e8f0;
+      margin-top: 2rem;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>Jomana Abdelrahman — Data Science & AI Portfolio</h1>
+    <p>Showcasing 10 hands-on projects in data, AI, and machine learning</p>
+  </header>
+
+  <main>
+    <section class="projects">
+
+      <!-- Project 1 -->
+      <div class="card">
+        <h2>🧠 Predictive Customer Churn Dashboard</h2>
+        <p>A full-stack machine learning dashboard predicting telecom customer churn using interactive Streamlit visualizations and real-time inference.</p>
+        <p class="tech"><strong>Tech:</strong> Python, Streamlit, Scikit-learn, Pandas</p>
+        <a href="p01_predictive_dashboard/README.md" target="_blank">🔗 View Project</a>
+      </div>
+
+      <!-- Project 2 -->
+      <div class="card">
+        <h2>❄️ Snowflake + dbt Fraud Detection Pipeline</h2>
+        <p>An end-to-end data engineering project that ingests financial transactions from AWS S3 into Snowflake, models them with dbt, and detects fraudulent activity.</p>
+        <p class="tech"><strong>Tech:</strong> Snowflake, dbt, SQL, AWS S3, Python</p>
+        <a href="p02_snowflake_dbt/README.md" target="_blank">🔗 View Project</a>
+      </div>
+
+    </section>
+  </main>
+
+  <footer>
+    <p>© 2025 Jomana Abdelrahman — Built with 💙 using data and code</p>
+  </footer>
+</body>
+</html>
