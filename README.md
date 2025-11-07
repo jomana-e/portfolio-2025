@@ -28,12 +28,12 @@ Each project is designed to be **end-to-end**: from raw data → model → inter
 ```bash
 portfolio-2025/
 │
-├── p01_predictive_dashboard/     
-├── p02_sales_forecasting/        
+├── p01_predictive_dashboard/
+├── p02_sales_forecasting/
 │
 ├── .github/workflows/            # CI/CD pipeline (lint, test, deploy)
 ├── requirements.txt              # Shared dependencies
-└── README.md                     
+└── README.md
 ```
 
 ## 📸 Visual Preview
