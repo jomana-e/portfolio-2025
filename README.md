@@ -70,10 +70,10 @@ conda env create -f environment.yml
 
 ---
 
-##🌐 Connect
+## 🌐 Connect
 
-[LinkedIn](https://www.linkedin.com/in/jomana-abdelrahman/)
-GitHub Pages / Streamlit Hub: Coming soon
-Portfolio Website: Coming soon
+- [LinkedIn](https://www.linkedin.com/in/jomana-abdelrahman/)
+- GitHub Pages / Streamlit Hub: Coming soon
+- Portfolio Website: Coming soon
 
 ---
