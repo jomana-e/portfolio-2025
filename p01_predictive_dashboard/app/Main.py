@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import joblib
 import json
+from pathlib import Path
 
 st.set_page_config(page_title="Customer Churn Predictor", layout="wide")
 
@@ -10,10 +11,11 @@ st.write("Use this dashboard to estimate the likelihood of a telecom customer ch
 
 @st.cache_resource
 def load_artifacts():
-    model = joblib.load("../models/churn_pipeline.joblib")
-    with open("../models/feature_columns.json") as f:
+    base = Path(__file__).resolve().parent.parent / "models"
+    model = joblib.load(base / "churn_pipeline.joblib")
+    with open(base / "feature_columns.json") as f:
         feature_cols = json.load(f)
-    with open("../models/feature_schema.json") as f:
+    with open(base / "feature_schema.json") as f:
         schema = json.load(f)
     return model, feature_cols, schema
 
