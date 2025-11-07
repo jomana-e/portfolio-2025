@@ -10,10 +10,10 @@ st.write("Use this dashboard to estimate the likelihood of a telecom customer ch
 
 @st.cache_resource
 def load_artifacts():
-    model = joblib.load("models/churn_pipeline.joblib")
-    with open("models/feature_columns.json") as f:
+    model = joblib.load("../models/churn_pipeline.joblib")
+    with open("../models/feature_columns.json") as f:
         feature_cols = json.load(f)
-    with open("models/feature_schema.json") as f:
+    with open("../models/feature_schema.json") as f:
         schema = json.load(f)
     return model, feature_cols, schema
 
