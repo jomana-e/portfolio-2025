@@ -1,0 +1,4 @@
+p01_predictive_dashboard/models/churn_model.joblib
+p01_predictive_dashboard/models/churn_pipeline.joblib
+p01_predictive_dashboard/models/feature_names.joblib
+p01_predictive_dashboard/0.5
