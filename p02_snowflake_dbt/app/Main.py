@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -128,7 +129,8 @@ with lineage_tab:
     The dbt models form a clear lineage:
     """)
 
-    st.image("app/assets/dbt_lineage.png", caption="Generated dbt Lineage Graph")
+    image_path = os.path.join(os.path.dirname(__file__), "assets", "dbt_lineage.png")
+    st.image(image_path, caption="Generated dbt Lineage Diagram")
 
     st.markdown("""
     ### ✅ Testing & Documentation
