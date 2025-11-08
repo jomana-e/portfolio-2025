@@ -126,16 +126,11 @@ with lineage_tab:
     st.markdown("""
     ### 🔗 Model Lineage
     The dbt models form a clear lineage:
-    ```
-    RAW_DATA.RAW_FRAUD_DATA
-           ↓
-    STAGING.STG_FRAUD_DATA
-           ↓
-    CORE.FRAUD_FEATURES
-           ↓
-    MARTS.FRAUD_SUMMARY
-    ```
+    """)
 
+    st.image("app/assets/dbt_lineage.png", caption="Generated dbt Lineage Graph", use_container_width=True)
+
+    st.markdown("""
     ### ✅ Testing & Documentation
     - Each dbt model includes schema tests (`unique`, `not_null`, `relationships`)
     - Documentation generated with `dbt docs generate`
@@ -146,8 +141,6 @@ with lineage_tab:
     - dbt enforces data reliability before analytics
     - Modular transformations make pipelines easy to maintain
     """)
-
-    st.caption("You can include a dbt lineage diagram here if generated (e.g. via `dbt docs generate`).")
 
 # Footer
 st.markdown("---")
