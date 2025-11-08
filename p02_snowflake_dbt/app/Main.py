@@ -128,7 +128,7 @@ with lineage_tab:
     The dbt models form a clear lineage:
     """)
 
-    st.image("app/assets/dbt_lineage.png", caption="Generated dbt Lineage Graph", use_container_width=True)
+    st.image("app/assets/dbt_lineage.png", caption="Generated dbt Lineage Graph")
 
     st.markdown("""
     ### ✅ Testing & Documentation
