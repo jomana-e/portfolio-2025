@@ -64,7 +64,11 @@ st.subheader("Sample Data from mart model")
 
 if conn:
     try:
-        query = "SELECT * FROM marts.transactions_summary LIMIT 10"
+        query = """
+        SELECT *
+        FROM financial_transactions_db.public.fraud_summary
+        LIMIT 10
+        """
         df = pd.read_sql(query, conn)
         st.dataframe(df)
 
