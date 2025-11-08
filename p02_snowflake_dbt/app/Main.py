@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import snowflake.connector
+from cryptography.hazmat.primitives import serialization
 
 # Page Config
 st.set_page_config(
@@ -49,15 +50,23 @@ with overview_tab:
 # Cached Data Loader
 @st.cache_data(ttl=600)
 def load_data():
+    # Convert PEM text into key object
+    private_key_str = st.secrets["snowflake"]["private_key"]
+    private_key_obj = serialization.load_pem_private_key(
+        private_key_str.encode(),
+        password=None,
+    )
+
     conn = snowflake.connector.connect(
         user=st.secrets["snowflake"]["user"],
         account=st.secrets["snowflake"]["account"],
-        private_key=st.secrets["snowflake"]["private_key"],
+        private_key=private_key_obj,
         role=st.secrets["snowflake"]["role"],
         warehouse=st.secrets["snowflake"]["warehouse"],
         database=st.secrets["snowflake"]["database"],
         schema=st.secrets["snowflake"]["schema"]
     )
+
     query = """
         SELECT *
         FROM financial_transactions_db.public.fraud_summary
