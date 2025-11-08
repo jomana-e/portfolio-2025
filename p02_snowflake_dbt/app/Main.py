@@ -49,7 +49,15 @@ with overview_tab:
 # Cached Data Loader
 @st.cache_data(ttl=600)
 def load_data():
-    conn = snowflake.connector.connect(**st.secrets["snowflake"])
+    conn = snowflake.connector.connect(
+        user=st.secrets["snowflake"]["user"],
+        account=st.secrets["snowflake"]["account"],
+        private_key=st.secrets["snowflake"]["private_key"],
+        role=st.secrets["snowflake"]["role"],
+        warehouse=st.secrets["snowflake"]["warehouse"],
+        database=st.secrets["snowflake"]["database"],
+        schema=st.secrets["snowflake"]["schema"]
+    )
     query = """
         SELECT *
         FROM financial_transactions_db.public.fraud_summary
