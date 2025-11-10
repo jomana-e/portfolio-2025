@@ -14,6 +14,13 @@ export default function Home() {
       link: "https://ja-portfolio-snowf-dbt-showcase.streamlit.app/",
       tags: ["Data Engineering", "Snowflake", "dbt"],
     },
+    {
+      title: "🧩 NLP Resume & JD Analyzer",
+      description:
+        "A semantic analyzer that matches resumes with job descriptions using embeddings, taxonomy coverage, and KeyBERT-powered insights.",
+      link: "https://ja-portfolio-nlp-resume-analyzer.streamlit.app/",
+      tags: ["NLP", "Hugging Face", "Streamlit"],
+    },
   ];
 
   return (
