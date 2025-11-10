@@ -3,6 +3,7 @@
 import streamlit as st
 import sys
 import os
+import re
 import pandas as pd
 import plotly.express as px
 from pathlib import Path
@@ -20,6 +21,10 @@ from scripts.nlp_core import analyze_resume_vs_jd, read_resume, load_skills_yaml
 ROOT = Path(__file__).resolve().parent.parent
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 taxonomy_path = os.path.join(BASE_DIR, "data", "skills.yaml")
+
+def enforce_ml_caps(text: str) -> str:
+    # Replace any instance of 'ml', 'mL', or 'Ml' with 'ML' (case-insensitive)
+    return re.sub(r'\bml\b', 'ML', text, flags=re.IGNORECASE)
 
 st.set_page_config(page_title="NLP Resume Analyzer", layout="wide")
 st.title("🧠 NLP Resume & Job Description Analyzer — HF-powered")
@@ -190,10 +195,10 @@ if out:
 
     st.markdown("---")
     st.markdown("### 🔎 Top Extracted JD Keywords")
-    st.write(", ".join(out.get("jd_keywords", [])) or "No keywords extracted.")
+    st.write(", ".join([enforce_ml_caps(w) for w in out.get("jd_keywords", [])]) or "No keywords extracted.")
 
     st.markdown("### 🚫 Semantic Missing (from JD)")
-    st.write(", ".join(out.get("semantic_missing", [])) or "None detected 🎉")
+    st.write(", ".join([enforce_ml_caps(w) for w in out.get("semantic_missing", [])]) or "None detected 🎉")
 
     st.markdown("### 📊 Taxonomy Coverage by Category")
     if cov:
@@ -231,9 +236,10 @@ if out:
 
             st.markdown("#### ✍️ Suggested Improvements")
             for s in meta["suggestions"]:
-                st.markdown(f"- **{s['term']}** → {s['suggestion']}")
-                st.markdown(f"  {s['example']}")
-
+                st.markdown(
+                    f"- **{enforce_ml_caps(s['term'])}** → {enforce_ml_caps(s['suggestion'])}"
+                )
+                st.markdown(f"  {enforce_ml_caps(s['example'])}")
     else:
         st.success("🟩 No major skill gaps detected — resume aligns strongly with the JD!")
 
@@ -248,7 +254,7 @@ if out:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
         story.append(Paragraph(f"<b>Report generated:</b> {timestamp}", styles["Normal"]))
         story.append(Spacer(1, 12))
-        story.append(Paragraph(f"<b>Resume–JD Similarity:</b> {similarity:.2f}%", styles["Normal"]))
+        story.append(Paragraph(f"<b>Resume–JD Similarity:</b> {enforce_ml_caps(f'{similarity:.2f}%')}", styles["Normal"]))
         avg_cov = df["Coverage (%)"].mean() if not df.empty else 0
         story.append(Paragraph(f"<b>Average Taxonomy Coverage:</b> {avg_cov:.1f}%", styles["Normal"]))
         story.append(Spacer(1, 12))
