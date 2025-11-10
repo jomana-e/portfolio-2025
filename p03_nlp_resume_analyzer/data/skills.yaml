@@ -1,0 +1,46 @@
+data_science:
+  - python
+  - pandas
+  - numpy
+  - scikit-learn
+  - machine learning
+  - deep learning
+  - data visualization
+  - statistics
+  - hypothesis testing
+  - sql
+  - feature engineering
+
+ml_engineering:
+  - tensorflow
+  - pytorch
+  - mlflow
+  - kubeflow
+  - model deployment
+  - feature store
+
+cloud:
+  - aws
+  - gcp
+  - azure
+  - s3
+  - lambda
+  - bigquery
+  - databricks
+
+tools:
+  - tableau
+  - power bi
+  - jupyter
+  - git
+  - docker
+  - streamlit
+  - airflow
+
+soft_skills:
+  - communication
+  - teamwork
+  - problem solving
+  - leadership
+  - adaptability
+  - collaboration
