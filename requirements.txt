@@ -21,3 +21,4 @@ snowflake-connector-python
 snowflake-sqlalchemy
 reportlab
 keybert
+rapidfuzz
