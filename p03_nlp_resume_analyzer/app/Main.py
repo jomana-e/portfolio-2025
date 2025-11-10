@@ -23,8 +23,11 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 taxonomy_path = os.path.join(BASE_DIR, "data", "skills.yaml")
 
 def enforce_ml_caps(text: str) -> str:
-    # Replace any instance of 'ml', 'mL', or 'Ml' with 'ML' (case-insensitive)
-    return re.sub(r'\bml\b', 'ML', text, flags=re.IGNORECASE)
+    # Force ML uppercase in any form (ml, Ml, mL)
+    if not isinstance(text, str):
+        return text
+    # Replace standalone or word-embedded 'ml' with 'ML'
+    return re.sub(r'(?<![a-zA-Z])ml(?![a-zA-Z])', 'ML', text, flags=re.IGNORECASE)
 
 st.set_page_config(page_title="NLP Resume Analyzer", layout="wide")
 st.title("🧠 NLP Resume & Job Description Analyzer — HF-powered")
@@ -205,6 +208,7 @@ if out:
         df = pd.DataFrame(
             [{"Category": k.replace("_", " ").title(), "Coverage (%)": v["coverage_pct"]} for k, v in cov.items()]
         )
+        df["Category"] = df["Category"].apply(enforce_ml_caps)
         if not df.empty:
             fig = px.line_polar(df, r="Coverage (%)", theta="Category",
                                 line_close=True, markers=True,
@@ -226,7 +230,7 @@ if out:
     if improvement_cats:
         for cat in improvement_cats:
             meta = recs[cat]
-            cat_clean = cat.replace("_", " ").title()
+            cat_clean = enforce_ml_caps(cat.replace("_", " ").title())
             st.markdown(f"### 🟨 {cat_clean} — Coverage: {meta['coverage_pct']:.1f}%")
 
             if meta["missing"]:
@@ -240,6 +244,7 @@ if out:
                     f"- **{enforce_ml_caps(s['term'])}** → {enforce_ml_caps(s['suggestion'])}"
                 )
                 st.markdown(f"  {enforce_ml_caps(s['example'])}")
+
     else:
         st.success("🟩 No major skill gaps detected — resume aligns strongly with the JD!")
 
