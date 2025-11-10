@@ -234,7 +234,6 @@ if out:
                 st.markdown(f"- **{s['term']}** → {s['suggestion']}")
                 st.markdown(f"  {s['example']}")
 
-            st.divider()
     else:
         st.success("🟩 No major skill gaps detected — resume aligns strongly with the JD!")
 
