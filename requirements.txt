@@ -22,3 +22,4 @@ snowflake-sqlalchemy
 reportlab
 keybert
 rapidfuzz
+pdfplumber
