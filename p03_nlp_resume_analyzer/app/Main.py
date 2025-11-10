@@ -18,6 +18,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from scripts.nlp_core import analyze_resume_vs_jd, read_resume, load_skills_yaml, _flatten_skills, clean_text
 
 ROOT = Path(__file__).resolve().parent.parent
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+taxonomy_path = os.path.join(BASE_DIR, "data", "skills.yaml")
 
 st.set_page_config(page_title="NLP Resume Analyzer", layout="wide")
 st.title("🧠 NLP Resume & Job Description Analyzer — HF-powered")
@@ -33,7 +35,7 @@ with st.sidebar.expander("🧭 Model Info"):
     • **Optional Generator:** `bigscience/bloomz-1b1`
     """)
 
-skills_yaml_default = "data/skills.yaml"
+skills_yaml_default = taxonomy_path
 
 
 # ---------------- Utility: Dynamic recommendations ---------------- #

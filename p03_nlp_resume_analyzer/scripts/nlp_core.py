@@ -34,6 +34,8 @@ try:
 except Exception:
     spacy, stopwords = None, None
 
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+taxonomy_path = os.path.join(BASE_DIR, "data", "skills.yaml")
 
 # CONFIGURATION
 EMBED_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
@@ -198,7 +200,7 @@ def find_missing_semantic(resume_text: str, jd_text: str, top_n: int = 25) -> Li
     return missing
 
 
-def load_skills_yaml(path: str = "data/skills.yaml") -> Dict:
+def load_skills_yaml(path: str = taxonomy_path) -> Dict:
     p = Path(path)
     if not p.exists():
         return {}
@@ -216,7 +218,7 @@ def _flatten_skills(raw) -> List[str]:
     return []
 
 
-def taxonomy_coverage(resume_text: str, jd_text: str, yaml_path: str = "data/skills.yaml", threshold: int = 75) -> Dict:
+def taxonomy_coverage(resume_text: str, jd_text: str, yaml_path: str = taxonomy_path, threshold: int = 75) -> Dict:
     raw = load_skills_yaml(yaml_path)
     if not raw:
         return {}
@@ -305,7 +307,7 @@ def read_resume(path: str) -> str:
 
 
 # ONE-CALL ANALYZER
-def analyze_resume_vs_jd(resume_text: str, jd_text: str, skills_yaml_path: str = "data/skills.yaml") -> Dict:
+def analyze_resume_vs_jd(resume_text: str, jd_text: str, skills_yaml_path: str = taxonomy_path) -> Dict:
     out = {}
     out["similarity"] = compute_similarity(resume_text, jd_text)
     jd_raw = [k for k, _ in extract_keywords(jd_text, top_n=25)]
