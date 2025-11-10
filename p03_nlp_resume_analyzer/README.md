@@ -23,19 +23,12 @@ The web interface, built in **Streamlit**, provides a one-click workflow to anal
 ## 🧩 Tech Stack
 
 | Layer | Technology |
-
 |-------|-------------|
-
 | **NLP & ML** | Sentence Transformers (`all-MiniLM-L6-v2`), KeyBERT, spaCy, RapidFuzz |
-
 | **App UI** | Streamlit |
-
 | **Visualization** | Plotly (Radar Chart), ReportLab (PDF export) |
-
 | **Data Storage** | YAML-based Skill Taxonomy |
-
 | **Automation** | Pre-commit hooks, Ruff, Verified Streamlit Deployment |
-
 | **Environment** | Conda / Python virtualenv |
 
 ---
