@@ -12,8 +12,8 @@ Each project is designed to be **end-to-end**: from raw data → model → inter
 |---|----------|-------------|-------------|-------------|
 | **P01** | [Predictive Customer Churn Dashboard](https://ja-portfolio-churn-dashboard.streamlit.app) | Predictive Analytics | Feature Engineering, Model Pipeline, EDA, Streamlit | ✅ Live |
 | **P02** | [Fraud Detection with Snowflake + dbt](https://ja-portfolio-snowf-dbt-showcase.streamlit.app) | Data Engineering & Analytics | dbt, SQL Modeling, Key-Pair Auth, Streamlit | ✅ Live |
-| **P03** | Sales Forecasting App | Time Series Forecasting | Prophet, ARIMA, Trend Modeling | 🟡 In Progress |
-| **P04** | Credit Risk Classifier | Risk Scoring | Imbalanced Data, Explainability (SHAP) | ⏳ Planned |
+| **P03** | [NLP Resume & Job Description Analyzer](https://ja-portfolio-nlp-resume-analyzer.streamlit.app) | Natural Language Processing | Semantic Search, Embeddings, Skill Taxonomy, PDF Parsing | ✅ Live |
+| **P04** | Credit Risk Classifier | Risk Scoring | Imbalanced Data, Explainability (SHAP) | 🟡 In Progress |
 | **P05** | Customer Segmentation | Unsupervised Learning | KMeans, PCA, Clustering Visuals | ⏳ Planned |
 | **P06** | NLP Sentiment Analyzer | Natural Language Processing | TF-IDF, Transformers | ⏳ Planned |
 | **P07** | Recommender System | Recommendation Engines | Collaborative Filtering | ⏳ Planned |
@@ -30,6 +30,7 @@ portfolio-2025/
 │
 ├── p01_predictive_dashboard/        # ML dashboard (Streamlit + scikit-learn)
 ├── p02_snowflake_dbt/               # Data pipeline app (Snowflake + dbt)
+├── p03_nlp_resume_analyzer/         # Resume–JD NLP Analyzer (semantic embeddings + taxonomy)
 ├── portfolio-site/                  # Next.js portfolio website
 │
 ├── .github/workflows/               # CI/CD (linting, testing, deployment)
@@ -50,7 +51,8 @@ portfolio-2025/
 Languages & Libraries
 - Python (pandas, NumPy, scikit-learn, matplotlib, seaborn)
 - Streamlit / Plotly for dashboards
-- Prophet / XGBoost / PyTorch / Hugging Face (for ML/AI)
+- Prophet / XGBoost / PyTorch (for ML/AI)
+- Hugging Face, sentence-transformers, KeyBERT (for NLP)
 - Docker, Conda, Git for environment and versioning
 
 Development Practices
