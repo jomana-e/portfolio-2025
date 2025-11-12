@@ -1,3 +1,103 @@
+# app/Main.py
+
+import os
 import streamlit as st
-st.title("Multimodal Search Engine")
-st.write("Hello world - deployment test")
+import pandas as pd
+import torch
+import faiss
+from PIL import Image
+from transformers import CLIPProcessor, CLIPModel
+
+st.set_page_config(page_title="Multimodal AI Search Engine", layout="wide")
+
+META_PATH = "data/processed/multimodal_metadata.csv"
+FAISS_IMG_INDEX = "data/indexes/faiss_image.index"
+FAISS_TXT_INDEX = "data/indexes/faiss_text.index"
+
+@st.cache_resource
+def load_model():
+    model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+    processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+    return model, processor
+
+@st.cache_resource
+def load_faiss_indexes():
+    img_index = faiss.read_index(FAISS_IMG_INDEX)
+    txt_index = faiss.read_index(FAISS_TXT_INDEX)
+    return img_index, txt_index
+
+@st.cache_data
+def load_metadata():
+    df = pd.read_csv(META_PATH)
+    # normalize slashes
+    df["image_path"] = df["image_path"].astype(str).str.replace("\\", "/", regex=False)
+    return df
+
+st.sidebar.success("Loading models & indexes...")
+model, processor = load_model()
+img_index, txt_index = load_faiss_indexes()
+metadata = load_metadata()
+device = "cuda" if torch.cuda.is_available() else "cpu"
+model = model.to(device)
+
+st.title("🧠 Multimodal AI Search Engine")
+st.markdown("Search across images and captions using **CLIP + FAISS** embeddings.")
+
+mode = st.sidebar.radio("Choose mode:", ["Text → Image", "Image → Text"])
+top_k = st.sidebar.slider("Number of results", 1, 20, 5)
+st.sidebar.info("✅ Ready for multimodal search.")
+
+# === TEXT → IMAGE SEARCH ===
+if mode == "Text → Image":
+    query = st.text_input("🔍 Enter a text query:", "a red sports car")
+
+    if st.button("Search") and query:
+        with torch.no_grad():
+            inputs = processor(text=[query], return_tensors="pt", padding=True).to(device)
+            text_emb = model.get_text_features(**inputs).cpu().numpy()
+
+        faiss.normalize_L2(text_emb)
+        distances, indices = img_index.search(text_emb, top_k * 3)  # oversample to dedupe later
+
+        st.subheader(f"Top {top_k} unique image results for: *{query}*")
+
+        # collect unique image paths
+        seen, results = set(), []
+        for idx in indices[0]:
+            row = metadata.iloc[idx]
+            path = row["image_path"]
+            if path not in seen and os.path.exists(path):
+                results.append(row)
+                seen.add(path)
+            if len(results) >= top_k:
+                break
+
+        if not results:
+            st.warning("No matching images found.")
+        else:
+            cols = st.columns(min(top_k, 5))
+            for i, row in enumerate(results):
+                with cols[i % 5]:
+                    try:
+                        st.image(row["image_path"], caption=row["caption"])
+                    except Exception:
+                        st.markdown(f"⚠️ Missing image: `{row['image_path']}`")
+
+# === IMAGE → TEXT SEARCH ===
+elif mode == "Image → Text":
+    uploaded_file = st.file_uploader("📁 Upload an image", type=["jpg", "png", "jpeg"])
+    if uploaded_file:
+        image = Image.open(uploaded_file).convert("RGB")
+        st.image(image, caption="Uploaded Image", width=400)
+
+        with torch.no_grad():
+            inputs = processor(images=image, return_tensors="pt", padding=True).to(device)
+            img_emb = model.get_image_features(**inputs).cpu().numpy()
+
+        faiss.normalize_L2(img_emb)
+        distances, indices = txt_index.search(img_emb, top_k)
+
+        st.subheader("Top matching captions:")
+        for i, idx in enumerate(indices[0]):
+            row = metadata.iloc[idx]
+            st.markdown(f"**{i+1}.** {row['caption']}")

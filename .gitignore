@@ -38,3 +38,9 @@ p02_snowflake_dbt/data/fraudTest.csv
 p02_snowflake_dbt/data/fraudTrain.csv
 .Rhistory
 p02_snowflake_dbt/package-lock.yml
+/p04_multimodal_search/data/sources/fashion/images
+/p04_multimodal_search/data/sources/unsplash/images
+p03_nlp_resume_analyzer/tmp_uploads/Resume - Jomana Abdelrahman.pdf
+/p04_multimodal_search/data/sources/coco/train2017
+/p04_multimodal_search/data/sources/coco/val2017
+/p04_multimodal_search/data/embeddings
