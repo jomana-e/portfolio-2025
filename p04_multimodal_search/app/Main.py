@@ -6,11 +6,13 @@ import pandas as pd
 import torch
 import faiss
 import boto3
+from botocore.exceptions import NoCredentialsError, ClientError
 from PIL import Image
 from transformers import CLIPProcessor, CLIPModel
 
 st.set_page_config(page_title="Multimodal AI Search Engine", layout="wide")
 
+# --- Paths ---
 META_PATH = "data/processed/multimodal_metadata.csv"
 FAISS_DIR = "data/indexes"
 FAISS_IMG_INDEX = os.path.join(FAISS_DIR, "faiss_image.index")
@@ -18,12 +20,15 @@ FAISS_TXT_INDEX = os.path.join(FAISS_DIR, "faiss_text.index")
 
 os.makedirs(FAISS_DIR, exist_ok=True)
 
+# --- Load CLIP model ---
 @st.cache_resource
 def load_model():
     model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
     processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
     return model, processor
 
+
+# --- Download and load FAISS indexes from S3 ---
 @st.cache_resource
 def load_faiss_indexes():
     bucket_name = "portfolio-curated-jomana"
@@ -32,39 +37,64 @@ def load_faiss_indexes():
         FAISS_TXT_INDEX: "indexes/faiss_text.index",
     }
 
-    if "aws" in st.secrets:
-        session = boto3.Session(
-            aws_access_key_id=st.secrets["aws"]["aws_access_key_id"],
-            aws_secret_access_key=st.secrets["aws"]["aws_secret_access_key"],
-            region_name=st.secrets["aws"].get("region_name", "us-east-1"),
-        )
-        s3 = session.client("s3")
-    else:
-        s3 = boto3.client("s3")
+    st.sidebar.write("🪣 Checking S3 credentials...")
 
+    try:
+        # Prefer Streamlit secrets
+        if "aws" in st.secrets:
+            aws_cfg = st.secrets["aws"]
+            s3 = boto3.client(
+                "s3",
+                aws_access_key_id=aws_cfg["aws_access_key_id"],
+                aws_secret_access_key=aws_cfg["aws_secret_access_key"],
+                region_name=aws_cfg.get("region_name", "us-east-1"),
+            )
+            st.sidebar.success("✅ AWS credentials loaded from secrets.")
+        else:
+            s3 = boto3.client("s3")
+            st.sidebar.warning("⚠️ Using default AWS credentials (none found in secrets).")
+    except Exception as e:
+        st.error(f"❌ Failed to initialize S3 client: {e}")
+        raise
+
+    # Download missing indexes
     for local_path, s3_key in s3_keys.items():
         if not os.path.exists(local_path):
             st.sidebar.info(f"📥 Downloading {os.path.basename(local_path)} from S3...")
             try:
                 s3.download_file(bucket_name, s3_key, local_path)
                 st.sidebar.success(f"✅ {os.path.basename(local_path)} downloaded.")
+            except NoCredentialsError:
+                st.error("❌ No AWS credentials found. Please set them in Streamlit secrets.")
+                raise
+            except ClientError as e:
+                st.error(f"❌ AWS ClientError: {e}")
+                raise
             except Exception as e:
-                st.error(f"Failed to download {s3_key} from S3: {e}")
+                st.error(f"❌ Unexpected error downloading {s3_key}: {e}")
                 raise
 
     # Load FAISS indexes
-    img_index = faiss.read_index(FAISS_IMG_INDEX)
-    txt_index = faiss.read_index(FAISS_TXT_INDEX)
-    return img_index, txt_index
+    try:
+        img_index = faiss.read_index(FAISS_IMG_INDEX)
+        txt_index = faiss.read_index(FAISS_TXT_INDEX)
+        st.sidebar.success("✅ FAISS indexes loaded successfully.")
+        return img_index, txt_index
+    except Exception as e:
+        st.error(f"❌ Failed to load FAISS indexes: {e}")
+        raise
 
+
+# --- Load metadata ---
 @st.cache_data
 def load_metadata():
     df = pd.read_csv(META_PATH)
-    # normalize slashes
     df["image_path"] = df["image_path"].astype(str).str.replace("\\", "/", regex=False)
     return df
 
-st.sidebar.success("Loading models & indexes...")
+
+# --- Main ---
+st.sidebar.success("🚀 Initializing app...")
 model, processor = load_model()
 img_index, txt_index = load_faiss_indexes()
 metadata = load_metadata()
@@ -78,7 +108,8 @@ mode = st.sidebar.radio("Choose mode:", ["Text → Image", "Image → Text"])
 top_k = st.sidebar.slider("Number of results", 1, 20, 5)
 st.sidebar.info("✅ Ready for multimodal search.")
 
-# === TEXT → IMAGE SEARCH ===
+
+# --- TEXT → IMAGE SEARCH ---
 if mode == "Text → Image":
     query = st.text_input("🔍 Enter a text query:", "a red sports car")
 
@@ -88,10 +119,10 @@ if mode == "Text → Image":
             text_emb = model.get_text_features(**inputs).cpu().numpy()
 
         faiss.normalize_L2(text_emb)
-        distances, indices = img_index.search(text_emb, top_k * 3)  # 3x more results for diversity
+        distances, indices = img_index.search(text_emb, top_k * 3)
+
         st.subheader(f"Top {top_k} unique image results for: *{query}*")
 
-        # collect unique image paths
         seen, results = set(), []
         for idx in indices[0]:
             row = metadata.iloc[idx]
@@ -113,7 +144,8 @@ if mode == "Text → Image":
                     except Exception:
                         st.markdown(f"⚠️ Missing image: `{row['image_path']}`")
 
-# === IMAGE → TEXT SEARCH ===
+
+# --- IMAGE → TEXT SEARCH ---
 elif mode == "Image → Text":
     uploaded_file = st.file_uploader("📁 Upload an image", type=["jpg", "png", "jpeg"])
     if uploaded_file:
