@@ -5,14 +5,18 @@ import streamlit as st
 import pandas as pd
 import torch
 import faiss
+import boto3
 from PIL import Image
 from transformers import CLIPProcessor, CLIPModel
 
 st.set_page_config(page_title="Multimodal AI Search Engine", layout="wide")
 
 META_PATH = "data/processed/multimodal_metadata.csv"
-FAISS_IMG_INDEX = "data/indexes/faiss_image.index"
-FAISS_TXT_INDEX = "data/indexes/faiss_text.index"
+FAISS_DIR = "data/indexes"
+FAISS_IMG_INDEX = os.path.join(FAISS_DIR, "faiss_image.index")
+FAISS_TXT_INDEX = os.path.join(FAISS_DIR, "faiss_text.index")
+
+os.makedirs(FAISS_DIR, exist_ok=True)
 
 @st.cache_resource
 def load_model():
@@ -22,6 +26,33 @@ def load_model():
 
 @st.cache_resource
 def load_faiss_indexes():
+    bucket_name = "portfolio-curated-jomana"
+    s3_keys = {
+        FAISS_IMG_INDEX: "indexes/faiss_image.index",
+        FAISS_TXT_INDEX: "indexes/faiss_text.index",
+    }
+
+    if "aws" in st.secrets:
+        session = boto3.Session(
+            aws_access_key_id=st.secrets["aws"]["aws_access_key_id"],
+            aws_secret_access_key=st.secrets["aws"]["aws_secret_access_key"],
+            region_name=st.secrets["aws"].get("region_name", "us-east-1"),
+        )
+        s3 = session.client("s3")
+    else:
+        s3 = boto3.client("s3")
+
+    for local_path, s3_key in s3_keys.items():
+        if not os.path.exists(local_path):
+            st.sidebar.info(f"📥 Downloading {os.path.basename(local_path)} from S3...")
+            try:
+                s3.download_file(bucket_name, s3_key, local_path)
+                st.sidebar.success(f"✅ {os.path.basename(local_path)} downloaded.")
+            except Exception as e:
+                st.error(f"Failed to download {s3_key} from S3: {e}")
+                raise
+
+    # Load FAISS indexes
     img_index = faiss.read_index(FAISS_IMG_INDEX)
     txt_index = faiss.read_index(FAISS_TXT_INDEX)
     return img_index, txt_index
@@ -57,8 +88,7 @@ if mode == "Text → Image":
             text_emb = model.get_text_features(**inputs).cpu().numpy()
 
         faiss.normalize_L2(text_emb)
-        distances, indices = img_index.search(text_emb, top_k * 3)  # oversample to dedupe later
-
+        distances, indices = img_index.search(text_emb, top_k * 3)  # 3x more results for diversity
         st.subheader(f"Top {top_k} unique image results for: *{query}*")
 
         # collect unique image paths
