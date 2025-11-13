@@ -83,7 +83,7 @@ def load_metadata_from_s3():
             tmp.flush()
             df = pd.read_csv(tmp.name)
 
-        # ✅ Clean and normalize all image paths
+        # ✅ Normalize and convert local paths → S3 object paths
         df["image_path"] = (
             df["image_path"]
             .astype(str)
@@ -92,7 +92,7 @@ def load_metadata_from_s3():
             .str.lstrip("/")
         )
 
-        # ✅ Construct valid S3 URLs
+        # ✅ Detect dataset folder automatically (COCO, fashion, unsplash, etc.)
         df["image_url"] = df["image_path"].apply(
             lambda p: f"https://{BUCKET}.s3.amazonaws.com/{p}"
         )
