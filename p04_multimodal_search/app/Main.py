@@ -1,181 +1,105 @@
 # app/Main.py
 
-import tempfile
+import os
 import streamlit as st
 import pandas as pd
-import torch
-import faiss
 import boto3
-from botocore.exceptions import NoCredentialsError, ClientError
+from io import BytesIO
 from PIL import Image
-from transformers import CLIPProcessor, CLIPModel
+import faiss
+import numpy as np
+from sentence_transformers import SentenceTransformer
 
-st.set_page_config(page_title="Multimodal AI Search Engine", layout="wide")
+BUCKET_NAME = "portfolio-curated-jomana"
+PROCESSED_PATH = "processed/multimodal_metadata_s3.csv"
+INDEX_DIR = "indexes"
+MODEL_NAME = "sentence-transformers/clip-ViT-B-32"
 
-BUCKET = "portfolio-curated-jomana"
-S3_PATHS = {
-    "image_index": "indexes/faiss_image.index",
-    "text_index": "indexes/faiss_text.index",
-    "metadata": "processed/multimodal_metadata.csv",
-}
-
-
-@st.cache_resource(show_spinner="Loading CLIP model...")
+@st.cache_resource(show_spinner=False)
 def load_model():
-    model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-    processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    model = model.to(device)
-    return model, processor, device
+    return SentenceTransformer(MODEL_NAME)
 
+@st.cache_resource(show_spinner=False)
+def load_faiss_index(index_path):
+    index = faiss.read_index(index_path)
+    return index
 
-def init_s3_client():
-    try:
-        if "aws" in st.secrets:
-            aws_cfg = st.secrets["aws"]
-            s3 = boto3.client(
-                "s3",
-                aws_access_key_id=aws_cfg["aws_access_key_id"],
-                aws_secret_access_key=aws_cfg["aws_secret_access_key"],
-                region_name=aws_cfg.get("region_name", "us-east-1"),
-            )
-        else:
-            s3 = boto3.client("s3")
-        return s3
-    except Exception as e:
-        st.error(f"❌ Failed to initialize S3 client: {e}")
-        raise
+@st.cache_data(show_spinner=False)
+def load_metadata_from_s3(bucket_name, key):
+    s3 = boto3.client("s3")
+    obj = s3.get_object(Bucket=bucket_name, Key=key)
+    return pd.read_csv(obj["Body"])
 
+@st.cache_data(show_spinner=False)
+def load_image_from_s3(bucket_name, key):
+    s3 = boto3.client("s3")
+    obj = s3.get_object(Bucket=bucket_name, Key=key)
+    return Image.open(BytesIO(obj["Body"].read()))
 
-@st.cache_resource(show_spinner="Fetching FAISS index from S3...")
-def load_index_from_s3(index_type: str):
-    s3 = init_s3_client()
-    s3_key = S3_PATHS[f"{index_type}_index"]
-    st.sidebar.info(f"📥 Downloading {index_type} index (~1.3 GB) from S3...")
+def search_index(index, query_vector, top_k=5):
+    distances, indices = index.search(np.array([query_vector]), top_k)
+    return indices[0], distances[0]
 
-    try:
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            s3.download_fileobj(BUCKET, s3_key, tmp)
-            tmp.flush()
-            index = faiss.read_index(tmp.name)
-        st.sidebar.success(f"✅ {index_type.capitalize()} index loaded successfully.")
-        return index
-    except NoCredentialsError:
-        st.error("❌ No AWS credentials found. Set them in Streamlit secrets.")
-        raise
-    except ClientError as e:
-        st.error(f"❌ AWS ClientError: {e}")
-        raise
-    except Exception as e:
-        st.error(f"❌ Failed to download or read {index_type} index: {e}")
-        raise
+def get_s3_key_from_uri(s3_uri):
+    if s3_uri.startswith("s3://"):
+        return s3_uri.split("/", 3)[-1]
+    return s3_uri
 
+def main():
+    st.set_page_config(page_title="🧠 Multimodal Search", layout="wide")
+    st.title("🔍 Multimodal Semantic Search")
+    st.caption("Search across image, text, and metadata powered by CLIP and FAISS")
 
-@st.cache_data(show_spinner="Loading metadata from S3...")
-def load_metadata_from_s3():
-    s3 = init_s3_client()
-    key = S3_PATHS["metadata"]
-    st.sidebar.info("📄 Downloading metadata CSV from S3...")
+    model = load_model()
+    st.sidebar.header("📂 Data Configuration")
 
-    try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp:
-            s3.download_fileobj(BUCKET, key, tmp)
-            tmp.flush()
-            df = pd.read_csv(tmp.name)
+    st.sidebar.write("Loading metadata from S3...")
+    metadata = load_metadata_from_s3(BUCKET_NAME, PROCESSED_PATH)
 
-        if "image_path" not in df.columns:
-            raise ValueError("Missing 'image_path' column in metadata CSV.")
+    st.sidebar.write("Loading FAISS indexes...")
+    image_index_path = os.path.join(INDEX_DIR, "image_index.faiss")
+    text_index_path = os.path.join(INDEX_DIR, "text_index.faiss")
+    image_index = load_faiss_index(image_index_path)
+    text_index = load_faiss_index(text_index_path)
 
-        # Ensure proper string formatting
-        df["image_path"] = df["image_path"].astype(str)
+    mode = st.sidebar.radio("Search mode", ["🖼️ Image", "💬 Text"], horizontal=True)
 
-        # Remove Windows backslashes, "data/sources/" prefix, and any leading slashes
-        df["image_path"] = (
-            df["image_path"]
-            .str.replace("\\", "/", regex=False)
-            .str.replace("data/sources/", "", regex=False)
-            .str.lstrip("/")
-        )
+    if mode == "💬 Text":
+        query = st.text_input("Enter your text query:", "a stylish red dress")
+        if st.button("Search"):
+            with st.spinner("Encoding and searching..."):
+                query_vector = model.encode([query], normalize_embeddings=True)
+                indices, distances = search_index(text_index, query_vector[0])
+                show_results(metadata, indices, distances)
+    else:
+        uploaded = st.file_uploader("Upload an image to search similar ones", type=["jpg", "png", "jpeg"])
+        if uploaded:
+            img = Image.open(uploaded)
+            st.image(img, caption="Uploaded Image", use_container_width=True)
+            if st.button("Search"):
+                with st.spinner("Encoding and searching..."):
+                    query_vector = model.encode([np.array(img)], normalize_embeddings=True)
+                    indices, distances = search_index(image_index, query_vector[0])
+                    show_results(metadata, indices, distances)
 
-        # Build valid HTTPS URLs to your S3 bucket
-        region = s3.meta.region_name or "us-east-1"
-        df["image_url"] = df["image_path"].apply(
-            lambda p: f"https://{BUCKET}.s3.{region}.amazonaws.com/{p}"
-        )
+def show_results(metadata, indices, distances):
+    st.subheader("📸 Search Results")
+    for i, idx in enumerate(indices):
+        row = metadata.iloc[idx]
+        s3_uri = row.get("s3_path") or row.get("image_path")
 
-        st.sidebar.success("✅ Metadata loaded successfully.")
-        return df
+        if pd.isna(s3_uri):
+            continue
 
-    except Exception as e:
-        st.error(f"❌ Failed to load metadata: {e}")
-        st.stop()
+        s3_key = get_s3_key_from_uri(s3_uri)
+        try:
+            image = load_image_from_s3(BUCKET_NAME, s3_key)
+            st.image(image, caption=f"{row.get('caption', '')}\n{row.get('source', '')}", use_container_width=True)
+        except Exception as e:
+            st.warning(f"⚠️ Failed to load image: {s3_key} ({e})")
 
+        st.write(f"**Source:** {row.get('source', 'Unknown')} | **Distance:** {distances[i]:.4f}")
+        st.divider()
 
-
-st.sidebar.success("🚀 Initializing app...")
-model, processor, device = load_model()
-metadata = load_metadata_from_s3()
-
-st.title("🧠 Multimodal AI Search Engine")
-st.markdown("Search across images and captions using **CLIP + FAISS** embeddings.")
-
-mode = st.sidebar.radio("Choose mode:", ["Text → Image", "Image → Text"])
-top_k = st.sidebar.slider("Number of results", 1, 20, 5)
-st.sidebar.info("⚙️ Index and metadata load from S3 only when needed.")
-
-
-if mode == "Text → Image":
-    query = st.text_input("🔍 Enter a text query:", "a red sports car")
-
-    if st.button("Search") and query:
-        img_index = load_index_from_s3("image")
-
-        with torch.no_grad():
-            inputs = processor(text=[query], return_tensors="pt", padding=True).to(device)
-            text_emb = model.get_text_features(**inputs).cpu().numpy()
-
-        faiss.normalize_L2(text_emb)
-        distances, indices = img_index.search(text_emb, top_k * 3)
-
-        st.subheader(f"Top {top_k} image results for: *{query}*")
-        seen, results = set(), []
-        for idx in indices[0]:
-            row = metadata.iloc[idx]
-            url = row.get("image_url")
-            if url and url not in seen:
-                results.append(row)
-                seen.add(url)
-            if len(results) >= top_k:
-                break
-
-        if not results:
-            st.warning("No matching images found.")
-        else:
-            cols = st.columns(min(top_k, 5))
-            for i, row in enumerate(results):
-                with cols[i % 5]:
-                    try:
-                        st.image(row["image_url"], caption=row["caption"])
-                    except Exception:
-                        st.markdown(f"⚠️ Missing or invalid image URL: `{row['image_url']}`")
-
-
-elif mode == "Image → Text":
-    uploaded_file = st.file_uploader("📁 Upload an image", type=["jpg", "png", "jpeg"])
-    if uploaded_file:
-        image = Image.open(uploaded_file).convert("RGB")
-        st.image(image, caption="Uploaded Image", width=400)
-
-        txt_index = load_index_from_s3("text")
-
-        with torch.no_grad():
-            inputs = processor(images=image, return_tensors="pt", padding=True).to(device)
-            img_emb = model.get_image_features(**inputs).cpu().numpy()
-
-        faiss.normalize_L2(img_emb)
-        distances, indices = txt_index.search(img_emb, top_k)
-
-        st.subheader("Top matching captions:")
-        for i, idx in enumerate(indices[0]):
-            row = metadata.iloc[idx]
-            st.markdown(f"**{i+1}.** {row['caption']}")
+if __name__ == "__main__":
+    main()
