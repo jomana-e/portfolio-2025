@@ -1,6 +1,5 @@
 # app/Main.py
 
-import os
 import tempfile
 import streamlit as st
 import pandas as pd
@@ -31,7 +30,6 @@ def load_model():
 
 
 def init_s3_client():
-    """Initialize S3 client from Streamlit secrets or environment."""
     try:
         if "aws" in st.secrets:
             aws_cfg = st.secrets["aws"]
@@ -51,7 +49,6 @@ def init_s3_client():
 
 @st.cache_resource(show_spinner="Fetching FAISS index from S3...")
 def load_index_from_s3(index_type: str):
-    """Download and load one FAISS index from S3 into a temp file."""
     s3 = init_s3_client()
     s3_key = S3_PATHS[f"{index_type}_index"]
     st.sidebar.info(f"📥 Downloading {index_type} index (~1.3 GB) from S3...")
@@ -76,7 +73,6 @@ def load_index_from_s3(index_type: str):
 
 @st.cache_data(show_spinner="Loading metadata from S3...")
 def load_metadata_from_s3():
-    """Download and read metadata CSV from S3 directly into a DataFrame."""
     s3 = init_s3_client()
     key = S3_PATHS["metadata"]
     st.sidebar.info("📄 Downloading metadata CSV from S3...")
@@ -86,7 +82,13 @@ def load_metadata_from_s3():
             s3.download_fileobj(BUCKET, key, tmp)
             tmp.flush()
             df = pd.read_csv(tmp.name)
+
         df["image_path"] = df["image_path"].astype(str).str.replace("\\", "/", regex=False)
+        # Construct S3 image URLs based on the stored paths
+        df["image_url"] = df["image_path"].apply(
+            lambda p: f"https://{BUCKET}.s3.amazonaws.com/{p.lstrip('/')}"
+        )
+
         st.sidebar.success("✅ Metadata loaded successfully.")
         return df
     except Exception as e:
@@ -123,10 +125,10 @@ if mode == "Text → Image":
         seen, results = set(), []
         for idx in indices[0]:
             row = metadata.iloc[idx]
-            path = row["image_path"]
-            if path not in seen and os.path.exists(path):
+            url = row.get("image_url")
+            if url and url not in seen:
                 results.append(row)
-                seen.add(path)
+                seen.add(url)
             if len(results) >= top_k:
                 break
 
@@ -137,9 +139,9 @@ if mode == "Text → Image":
             for i, row in enumerate(results):
                 with cols[i % 5]:
                     try:
-                        st.image(row["image_path"], caption=row["caption"])
+                        st.image(row["image_url"], caption=row["caption"])
                     except Exception:
-                        st.markdown(f"⚠️ Missing image: `{row['image_path']}`")
+                        st.markdown(f"⚠️ Missing or invalid image URL: `{row['image_url']}`")
 
 
 elif mode == "Image → Text":
