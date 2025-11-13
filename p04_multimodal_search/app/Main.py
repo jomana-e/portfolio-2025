@@ -1,5 +1,3 @@
-# app/Main.py
-
 import os
 import streamlit as st
 import pandas as pd
@@ -9,11 +7,34 @@ from PIL import Image
 import faiss
 import numpy as np
 from sentence_transformers import SentenceTransformer
+import requests
 
 BUCKET_NAME = "portfolio-curated-jomana"
 PROCESSED_PATH = "processed/multimodal_metadata_s3.csv"
 INDEX_DIR = "indexes"
 MODEL_NAME = "sentence-transformers/clip-ViT-B-32"
+
+@st.cache_resource(show_spinner=False)
+def get_s3_client():
+    """Create a boto3 S3 client using Streamlit secrets if available."""
+    try:
+        aws_secrets = st.secrets.get("aws", None)
+        if aws_secrets:
+            session = boto3.session.Session(
+                aws_access_key_id=aws_secrets["AWS_ACCESS_KEY_ID"],
+                aws_secret_access_key=aws_secrets["AWS_SECRET_ACCESS_KEY"],
+                region_name=aws_secrets.get("AWS_DEFAULT_REGION", "us-east-1"),
+            )
+            st.sidebar.success("✅ AWS credentials loaded from Streamlit secrets.")
+            return session.client("s3")
+        else:
+            st.sidebar.warning("⚠️ No AWS credentials found in Streamlit secrets — using public URLs.")
+            return None
+    except Exception as e:
+        st.sidebar.error(f"Failed to load AWS credentials: {e}")
+        return None
+
+s3_client = get_s3_client()
 
 @st.cache_resource(show_spinner=False)
 def load_model():
@@ -26,15 +47,27 @@ def load_faiss_index(index_path):
 
 @st.cache_data(show_spinner=False)
 def load_metadata_from_s3(bucket_name, key):
-    s3 = boto3.client("s3")
-    obj = s3.get_object(Bucket=bucket_name, Key=key)
-    return pd.read_csv(obj["Body"])
+    if s3_client:
+        obj = s3_client.get_object(Bucket=bucket_name, Key=key)
+        return pd.read_csv(obj["Body"])
+    else:
+        url = f"https://{bucket_name}.s3.amazonaws.com/{key}"
+        return pd.read_csv(url)
 
 @st.cache_data(show_spinner=False)
 def load_image_from_s3(bucket_name, key):
-    s3 = boto3.client("s3")
-    obj = s3.get_object(Bucket=bucket_name, Key=key)
-    return Image.open(BytesIO(obj["Body"].read()))
+    """Load an image from S3 using credentials or public URL."""
+    try:
+        if s3_client:
+            obj = s3_client.get_object(Bucket=bucket_name, Key=key)
+            return Image.open(BytesIO(obj["Body"].read()))
+        else:
+            url = f"https://{bucket_name}.s3.amazonaws.com/{key}"
+            response = requests.get(url, stream=True)
+            response.raise_for_status()
+            return Image.open(response.raw)
+    except Exception as e:
+        raise RuntimeError(f"Could not load image {key}: {e}")
 
 def search_index(index, query_vector, top_k=5):
     distances, indices = index.search(np.array([query_vector]), top_k)
