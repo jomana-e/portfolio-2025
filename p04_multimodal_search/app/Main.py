@@ -83,25 +83,36 @@ def load_metadata_from_s3():
             tmp.flush()
             df = pd.read_csv(tmp.name)
 
-        # ✅ Normalize and convert local paths → S3 object paths
+        # Ensure 'image_path' exists and is stringified
+        if "image_path" not in df.columns:
+            raise ValueError("Missing 'image_path' column in metadata CSV.")
+
+        df["image_path"] = df["image_path"].astype(str)
+
+        # Normalize all path variants safely
         df["image_path"] = (
             df["image_path"]
-            .astype(str)
             .str.replace("\\", "/", regex=False)
             .str.replace("data/sources/", "", regex=False)
             .str.lstrip("/")
         )
 
-        # ✅ Detect dataset folder automatically (COCO, fashion, unsplash, etc.)
+        # Construct full S3 URLs (universal https form)
+        region = s3.meta.region_name or "us-east-1"
         df["image_url"] = df["image_path"].apply(
-            lambda p: f"https://{BUCKET}.s3.amazonaws.com/{p}"
+            lambda p: (
+                f"https://{BUCKET}.s3.{region}.amazonaws.com/{p}"
+                if not p.startswith("https://")
+                else p
+            )
         )
 
         st.sidebar.success("✅ Metadata loaded successfully.")
         return df
+
     except Exception as e:
         st.error(f"❌ Failed to load metadata: {e}")
-        raise
+        st.stop()
 
 
 st.sidebar.success("🚀 Initializing app...")
