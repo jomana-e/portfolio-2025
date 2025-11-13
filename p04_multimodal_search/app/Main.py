@@ -1,6 +1,7 @@
 # app/Main.py
 
 import os
+import tempfile
 import streamlit as st
 import pandas as pd
 import torch
@@ -12,35 +13,26 @@ from transformers import CLIPProcessor, CLIPModel
 
 st.set_page_config(page_title="Multimodal AI Search Engine", layout="wide")
 
-# --- Paths ---
 META_PATH = "data/processed/multimodal_metadata.csv"
-FAISS_DIR = "data/indexes"
-FAISS_IMG_INDEX = os.path.join(FAISS_DIR, "faiss_image.index")
-FAISS_TXT_INDEX = os.path.join(FAISS_DIR, "faiss_text.index")
+BUCKET = "portfolio-curated-jomana"
+INDEX_PATHS = {
+    "image": "indexes/faiss_image.index",
+    "text": "indexes/faiss_text.index",
+}
 
-os.makedirs(FAISS_DIR, exist_ok=True)
-
-# --- Load CLIP model ---
-@st.cache_resource
+@st.cache_resource(show_spinner="Loading CLIP model...")
 def load_model():
     model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
     processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
-    return model, processor
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model = model.to(device)
+    return model, processor, device
 
 
-# --- Download and load FAISS indexes from S3 ---
-@st.cache_resource
-def load_faiss_indexes():
-    bucket_name = "portfolio-curated-jomana"
-    s3_keys = {
-        FAISS_IMG_INDEX: "indexes/faiss_image.index",
-        FAISS_TXT_INDEX: "indexes/faiss_text.index",
-    }
-
-    st.sidebar.write("🪣 Checking S3 credentials...")
-
+@st.cache_resource(show_spinner="Fetching FAISS index from S3...")
+def load_index_from_s3(index_type: str):
+    """Download and load one FAISS index from S3 into a temp file."""
     try:
-        # Prefer Streamlit secrets
         if "aws" in st.secrets:
             aws_cfg = st.secrets["aws"]
             s3 = boto3.client(
@@ -49,71 +41,58 @@ def load_faiss_indexes():
                 aws_secret_access_key=aws_cfg["aws_secret_access_key"],
                 region_name=aws_cfg.get("region_name", "us-east-1"),
             )
-            st.sidebar.success("✅ AWS credentials loaded from secrets.")
         else:
             s3 = boto3.client("s3")
-            st.sidebar.warning("⚠️ Using default AWS credentials (none found in secrets).")
     except Exception as e:
         st.error(f"❌ Failed to initialize S3 client: {e}")
         raise
 
-    # Download missing indexes
-    for local_path, s3_key in s3_keys.items():
-        if not os.path.exists(local_path):
-            st.sidebar.info(f"📥 Downloading {os.path.basename(local_path)} from S3...")
-            try:
-                s3.download_file(bucket_name, s3_key, local_path)
-                st.sidebar.success(f"✅ {os.path.basename(local_path)} downloaded.")
-            except NoCredentialsError:
-                st.error("❌ No AWS credentials found. Please set them in Streamlit secrets.")
-                raise
-            except ClientError as e:
-                st.error(f"❌ AWS ClientError: {e}")
-                raise
-            except Exception as e:
-                st.error(f"❌ Unexpected error downloading {s3_key}: {e}")
-                raise
+    s3_key = INDEX_PATHS[index_type]
+    st.sidebar.info(f"📥 Downloading {index_type} index (~1.3 GB) from S3...")
 
-    # Load FAISS indexes
     try:
-        img_index = faiss.read_index(FAISS_IMG_INDEX)
-        txt_index = faiss.read_index(FAISS_TXT_INDEX)
-        st.sidebar.success("✅ FAISS indexes loaded successfully.")
-        return img_index, txt_index
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            s3.download_fileobj(BUCKET, s3_key, tmp)
+            tmp.flush()
+            index = faiss.read_index(tmp.name)
+        st.sidebar.success(f"✅ {index_type.capitalize()} index loaded successfully.")
+        return index
+    except NoCredentialsError:
+        st.error("❌ No AWS credentials found. Set them in Streamlit secrets.")
+        raise
+    except ClientError as e:
+        st.error(f"❌ AWS ClientError: {e}")
+        raise
     except Exception as e:
-        st.error(f"❌ Failed to load FAISS indexes: {e}")
+        st.error(f"❌ Failed to download or read {index_type} index: {e}")
         raise
 
 
-# --- Load metadata ---
-@st.cache_data
+@st.cache_data(show_spinner="Loading metadata...")
 def load_metadata():
     df = pd.read_csv(META_PATH)
     df["image_path"] = df["image_path"].astype(str).str.replace("\\", "/", regex=False)
     return df
 
 
-# --- Main ---
 st.sidebar.success("🚀 Initializing app...")
-model, processor = load_model()
-img_index, txt_index = load_faiss_indexes()
+model, processor, device = load_model()
 metadata = load_metadata()
-device = "cuda" if torch.cuda.is_available() else "cpu"
-model = model.to(device)
 
 st.title("🧠 Multimodal AI Search Engine")
 st.markdown("Search across images and captions using **CLIP + FAISS** embeddings.")
 
 mode = st.sidebar.radio("Choose mode:", ["Text → Image", "Image → Text"])
 top_k = st.sidebar.slider("Number of results", 1, 20, 5)
-st.sidebar.info("✅ Ready for multimodal search.")
+st.sidebar.info("⚙️ Index will load from S3 only when needed.")
 
 
-# --- TEXT → IMAGE SEARCH ---
 if mode == "Text → Image":
     query = st.text_input("🔍 Enter a text query:", "a red sports car")
 
     if st.button("Search") and query:
+        img_index = load_index_from_s3("image")
+
         with torch.no_grad():
             inputs = processor(text=[query], return_tensors="pt", padding=True).to(device)
             text_emb = model.get_text_features(**inputs).cpu().numpy()
@@ -121,8 +100,7 @@ if mode == "Text → Image":
         faiss.normalize_L2(text_emb)
         distances, indices = img_index.search(text_emb, top_k * 3)
 
-        st.subheader(f"Top {top_k} unique image results for: *{query}*")
-
+        st.subheader(f"Top {top_k} image results for: *{query}*")
         seen, results = set(), []
         for idx in indices[0]:
             row = metadata.iloc[idx]
@@ -145,12 +123,13 @@ if mode == "Text → Image":
                         st.markdown(f"⚠️ Missing image: `{row['image_path']}`")
 
 
-# --- IMAGE → TEXT SEARCH ---
 elif mode == "Image → Text":
     uploaded_file = st.file_uploader("📁 Upload an image", type=["jpg", "png", "jpeg"])
     if uploaded_file:
         image = Image.open(uploaded_file).convert("RGB")
         st.image(image, caption="Uploaded Image", width=400)
+
+        txt_index = load_index_from_s3("text")
 
         with torch.no_grad():
             inputs = processor(images=image, return_tensors="pt", padding=True).to(device)
