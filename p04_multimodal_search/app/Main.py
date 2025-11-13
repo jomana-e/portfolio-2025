@@ -14,6 +14,8 @@ PROCESSED_PATH = "processed/multimodal_metadata_s3.csv"
 INDEX_DIR = "indexes"
 MODEL_NAME = "sentence-transformers/clip-ViT-B-32"
 
+st.set_page_config(page_title="🧠 Multimodal Search", layout="wide")
+
 @st.cache_resource(show_spinner=False)
 def get_s3_client():
     """Create a boto3 S3 client using Streamlit secrets if available."""
@@ -79,7 +81,6 @@ def get_s3_key_from_uri(s3_uri):
     return s3_uri
 
 def main():
-    st.set_page_config(page_title="🧠 Multimodal Search", layout="wide")
     st.title("🔍 Multimodal Semantic Search")
     st.caption("Search across image, text, and metadata powered by CLIP and FAISS")
 
