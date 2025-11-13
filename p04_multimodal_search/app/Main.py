@@ -83,10 +83,18 @@ def load_metadata_from_s3():
             tmp.flush()
             df = pd.read_csv(tmp.name)
 
-        df["image_path"] = df["image_path"].astype(str).str.replace("\\", "/", regex=False)
-        # Construct S3 image URLs based on the stored paths
+        # ✅ Clean and normalize all image paths
+        df["image_path"] = (
+            df["image_path"]
+            .astype(str)
+            .str.replace("\\", "/", regex=False)
+            .str.replace("data/sources/", "", regex=False)
+            .str.lstrip("/")
+        )
+
+        # ✅ Construct valid S3 URLs
         df["image_url"] = df["image_path"].apply(
-            lambda p: f"https://{BUCKET}.s3.amazonaws.com/{p.lstrip('/')}"
+            lambda p: f"https://{BUCKET}.s3.amazonaws.com/{p}"
         )
 
         st.sidebar.success("✅ Metadata loaded successfully.")
