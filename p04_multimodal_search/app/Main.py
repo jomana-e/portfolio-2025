@@ -13,12 +13,13 @@ from transformers import CLIPProcessor, CLIPModel
 
 st.set_page_config(page_title="Multimodal AI Search Engine", layout="wide")
 
-META_PATH = "data/processed/multimodal_metadata.csv"
 BUCKET = "portfolio-curated-jomana"
-INDEX_PATHS = {
-    "image": "indexes/faiss_image.index",
-    "text": "indexes/faiss_text.index",
+S3_PATHS = {
+    "image_index": "indexes/faiss_image.index",
+    "text_index": "indexes/faiss_text.index",
+    "metadata": "processed/multimodal_metadata.csv",
 }
+
 
 @st.cache_resource(show_spinner="Loading CLIP model...")
 def load_model():
@@ -29,9 +30,8 @@ def load_model():
     return model, processor, device
 
 
-@st.cache_resource(show_spinner="Fetching FAISS index from S3...")
-def load_index_from_s3(index_type: str):
-    """Download and load one FAISS index from S3 into a temp file."""
+def init_s3_client():
+    """Initialize S3 client from Streamlit secrets or environment."""
     try:
         if "aws" in st.secrets:
             aws_cfg = st.secrets["aws"]
@@ -43,11 +43,17 @@ def load_index_from_s3(index_type: str):
             )
         else:
             s3 = boto3.client("s3")
+        return s3
     except Exception as e:
         st.error(f"❌ Failed to initialize S3 client: {e}")
         raise
 
-    s3_key = INDEX_PATHS[index_type]
+
+@st.cache_resource(show_spinner="Fetching FAISS index from S3...")
+def load_index_from_s3(index_type: str):
+    """Download and load one FAISS index from S3 into a temp file."""
+    s3 = init_s3_client()
+    s3_key = S3_PATHS[f"{index_type}_index"]
     st.sidebar.info(f"📥 Downloading {index_type} index (~1.3 GB) from S3...")
 
     try:
@@ -68,23 +74,36 @@ def load_index_from_s3(index_type: str):
         raise
 
 
-@st.cache_data(show_spinner="Loading metadata...")
-def load_metadata():
-    df = pd.read_csv(META_PATH)
-    df["image_path"] = df["image_path"].astype(str).str.replace("\\", "/", regex=False)
-    return df
+@st.cache_data(show_spinner="Loading metadata from S3...")
+def load_metadata_from_s3():
+    """Download and read metadata CSV from S3 directly into a DataFrame."""
+    s3 = init_s3_client()
+    key = S3_PATHS["metadata"]
+    st.sidebar.info("📄 Downloading metadata CSV from S3...")
+
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp:
+            s3.download_fileobj(BUCKET, key, tmp)
+            tmp.flush()
+            df = pd.read_csv(tmp.name)
+        df["image_path"] = df["image_path"].astype(str).str.replace("\\", "/", regex=False)
+        st.sidebar.success("✅ Metadata loaded successfully.")
+        return df
+    except Exception as e:
+        st.error(f"❌ Failed to load metadata: {e}")
+        raise
 
 
 st.sidebar.success("🚀 Initializing app...")
 model, processor, device = load_model()
-metadata = load_metadata()
+metadata = load_metadata_from_s3()
 
 st.title("🧠 Multimodal AI Search Engine")
 st.markdown("Search across images and captions using **CLIP + FAISS** embeddings.")
 
 mode = st.sidebar.radio("Choose mode:", ["Text → Image", "Image → Text"])
 top_k = st.sidebar.slider("Number of results", 1, 20, 5)
-st.sidebar.info("⚙️ Index will load from S3 only when needed.")
+st.sidebar.info("⚙️ Index and metadata load from S3 only when needed.")
 
 
 if mode == "Text → Image":
